@@ -1,0 +1,2183 @@
+
+import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
+import {
+  PlayCircle, Upload, Calendar, Hash, Send, Users, X, Star, BarChart3, User, Zap, Loader2, Eye, Heart, LogOut, Check, Menu, Plus, Smartphone, TrendingUp, Lock, Globe, Languages, Clock, Image as ImageIcon, EyeOff, Sparkles, Minimize2, Maximize2, ChevronLeft, ChevronRight
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { base44 } from '@/api/base44Client';
+
+// ============ AUTH CONTEXT ============
+const AuthContext = createContext();
+
+function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('huboria_user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+    setLoading(false);
+  }, []);
+
+  const login = async (email, password) => {
+    const user = {
+      id: Date.now(),
+      email,
+      full_name: email.split('@')[0],
+      plan: 'essai'
+    };
+    localStorage.setItem('huboria_user', JSON.stringify(user));
+    setUser(user);
+  };
+
+  const register = async (email, password, fullName) => {
+    const user = {
+      id: Date.now(),
+      email,
+      full_name: fullName,
+      plan: 'essai'
+    };
+    localStorage.setItem('huboria_user', JSON.stringify(user));
+    setUser(user);
+  };
+
+  const logout = () => {
+    localStorage.removeItem('huboria_user');
+    setUser(null);
+  };
+
+  const changePlan = (plan) => {
+    const updatedUser = { ...user, plan };
+    localStorage.setItem('huboria_user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, register, logout, changePlan }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+function useAuth() {
+  return useContext(AuthContext);
+}
+
+// ============ TOAST CONTEXT ============
+const ToastContext = createContext();
+
+function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
+
+  const push = (message) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  };
+
+  const remove = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  return (
+    <ToastContext.Provider value={{ push }}>
+      {children}
+      <div className="fixed bottom-4 right-4 z-50 space-y-2">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className="bg-white/90 backdrop-blur-md text-gray-900 px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/20 min-w-[300px]"
+          >
+            <span className="flex-1 font-medium">{toast.message}</span>
+            <button onClick={() => remove(toast.id)} className="p-1 hover:bg-gray-100 rounded-lg">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+function useToast() {
+  return useContext(ToastContext);
+}
+
+// ============ COMPONENTS ============
+function Button({ 
+  children, 
+  variant = 'primary', 
+  size = 'md', 
+  className = '', 
+  onClick,
+  disabled,
+  ...props 
+}) {
+  const baseClasses = 'rounded-2xl font-medium transition-all duration-300 flex items-center justify-center';
+  
+  const variantClasses = {
+    primary: 'bg-white text-gray-900 hover:bg-gray-100',
+    secondary: 'bg-white/10 text-white hover:bg-white/20 border border-white/20',
+    outline: 'bg-transparent border-2 border-white/40 text-white hover:bg-white/10'
+  };
+
+  const sizeClasses = {
+    sm: 'px-3 py-1.5 text-sm',
+    md: 'px-6 py-3 text-base',
+    lg: 'px-8 py-4 text-lg'
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+function GlobeComponent() {
+  return (
+    <div className="w-full h-full flex items-center justify-center">
+      <div className="relative w-full h-full">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-64 h-64 md:w-96 md:h-96 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-xl border border-white/10 animate-pulse"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DateTimePicker({ date, time, onDateChange, onTimeChange }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <label className="text-xs sm:text-sm font-medium text-gray-300 mb-1.5 flex items-center gap-2">
+          <Calendar className="w-3 h-3 sm:w-4 sm:h-4"/>
+          Date
+        </label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => onDateChange(e.target.value)}
+          className="w-full rounded-xl border border-gray-600 bg-gray-700/30 backdrop-blur-md px-3 py-2 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
+        />
+      </div>
+      <div>
+        <label className="text-xs sm:text-sm font-medium text-gray-300 mb-1.5 flex items-center gap-2">
+          <Clock className="w-3 h-3 sm:w-4 sm:h-4"/>
+          Heure
+        </label>
+        <input
+          type="time"
+          value={time}
+          onChange={(e) => onTimeChange(e.target.value)}
+          className="w-full rounded-xl border border-gray-600 bg-gray-700/30 backdrop-blur-md px-3 py-2 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
+        />
+      </div>
+    </div>
+  );
+}
+
+function PhoneMockup({ children, videoSrc, src, carouselImages = [], contentType = 'video' }) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const width = 433;
+  const height = 882;
+
+  const hasCarousel = contentType === 'carousel' && carouselImages && carouselImages.length > 0;
+  const currentSrc = hasCarousel ? carouselImages[currentImageIndex] : src;
+
+  const handleLeftClick = (e) => {
+    if (hasCarousel) {
+      e.stopPropagation();
+      setCurrentImageIndex((prev) => (prev > 0 ? prev - 1 : carouselImages.length - 1));
+    }
+  };
+
+  const handleRightClick = (e) => {
+    if (hasCarousel) {
+      e.stopPropagation();
+      setCurrentImageIndex((prev) => (prev < carouselImages.length - 1 ? prev + 1 : 0));
+    }
+  };
+
+  return (
+    <div className="relative mx-auto" style={{ width: '100%', height: '100%' }}>
+      <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+        <path d="M2 73C2 32.6832 34.6832 0 75 0H357C397.317 0 430 32.6832 430 73V809C430 849.317 397.317 882 357 882H75C34.6832 882 2 849.317 2 809V73Z" className="fill-gray-600" />
+        <path d="M0 171C0 170.448 0.447715 170 1 170H3V204H1C0.447715 204 0 203.552 0 203V171Z" className="fill-gray-600" />
+        <path d="M1 234C1 233.448 1.44772 233 2 233H3.5V300H2C1.44772 300 1 299.552 1 299V234Z" className="fill-gray-600" />
+        <path d="M1 319C1 318.448 1.44772 318 2 318H3.5V385H2C1.44772 385 1 384.552 1 384V319Z" className="fill-gray-600" />
+        <path d="M430 279H432C432.552 279 433 279.448 433 280V384C433 384.552 432.552 385 432 385H430V279Z" className="fill-gray-600" />
+        <path d="M6 74C6 35.3401 37.3401 4 76 4H356C394.66 4 426 35.3401 426 74V808C426 846.66 394.66 878 356 878H76C37.3401 878 6 846.66 6 808V74Z" className="fill-gray-700" />
+        <path opacity="0.5" d="M174 5H258V5.5C258 6.60457 257.105 7.5 256 7.5H176C174.895 7.5 174 6.60457 174 5.5V5Z" className="fill-gray-600" />
+        <rect x="21.25" y="19.25" width="389.5" height="843.5" rx="55.75" ry="55.75" fill="transparent" stroke="#000000" strokeWidth="2" />
+        {!currentSrc && !videoSrc && !children && <rect x="21.25" y="19.25" width="389.5" height="843.5" rx="55.75" ry="55.75" fill="#000000" />}
+        {currentSrc && <image href={currentSrc} x="21.25" y="19.25" width="389.5" height="843.5" preserveAspectRatio="xMidYMid slice" clipPath="url(#roundedCorners)" />}
+        {videoSrc && <foreignObject x="21.25" y="19.25" width="389.5" height="843.5" clipPath="url(#roundedCorners)"><div style={{ width: "100%", height: "100%" }}><video style={{ width: "100%", height: "100%", objectFit: "cover" }} src={videoSrc} autoPlay loop muted playsInline /></div></foreignObject>}
+        {children && !currentSrc && !videoSrc && <foreignObject x="21.25" y="19.25" width="389.5" height="843.5" clipPath="url(#roundedCorners)"><div style={{ width: "100%", height: "100%" }}>{children}</div></foreignObject>}
+        <path d="M154 48.5C154 38.2827 162.283 30 172.5 30H259.5C269.717 30 278 38.2827 278 48.5C278 58.7173 269.717 67 259.5 67H172.5C162.283 67 154 58.7173 154 48.5Z" className="fill-gray-800" />
+        <path d="M249 48.5C249 42.701 253.701 38 259.5 38C265.299 38 270 42.701 270 48.5C270 54.299 265.299 59 259.5 59C253.701 59 249 54.299 249 48.5Z" className="fill-gray-800" />
+        <path d="M254 48.5C254 45.4624 256.462 43 259.5 43C262.538 43 265 45.4624 265 48.5C265 51.5376 262.538 54 259.5 54C256.462 54 254 51.5376 254 48.5Z" className="fill-gray-700" />
+        <defs><clipPath id="roundedCorners"><rect x="21.25" y="19.25" width="389.5" height="843.5" rx="55.75" ry="55.75" /></clipPath></defs>
+      </svg>
+      {hasCarousel && (
+        <>
+          <div onClick={handleLeftClick} className="absolute left-0 top-0 bottom-0 w-1/3 cursor-pointer z-10 flex items-center justify-start pl-4" style={{ pointerEvents: 'auto' }}><div className="bg-black/50 backdrop-blur-md rounded-full p-2 opacity-0 hover:opacity-100 transition-opacity"><ChevronLeft className="w-6 h-6 text-white" /></div></div>
+          <div onClick={handleRightClick} className="absolute right-0 top-0 bottom-0 w-1/3 cursor-pointer z-10 flex items-center justify-end pr-4" style={{ pointerEvents: 'auto' }}><div className="bg-black/50 backdrop-blur-md rounded-full p-2 opacity-0 hover:opacity-100 transition-opacity"><ChevronRight className="w-6 h-6 text-white" /></div></div>
+          <div className="absolute left-1/2 transform -translate-x-1/2 flex gap-2 z-20" style={{ bottom: '22%' }}>{carouselImages.map((_, index) => <div key={index} className={`w-2 h-2 rounded-full transition-all ${index === currentImageIndex ? 'bg-white w-4' : 'bg-white/50'}`} />)}</div>
+        </>
+      )}
+      {(videoSrc || currentSrc) && (
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute" style={{ right: '8%', bottom: '20%', zIndex: 10 }}>
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col items-center"><div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center mb-1"><svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div><span className="text-white text-xs font-semibold">120k</span></div>
+              <div className="flex flex-col items-center"><div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center mb-1"><svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></div><span className="text-white text-xs font-semibold">4.2k</span></div>
+              <div className="flex flex-col items-center"><div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center mb-1"><svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg></div><span className="text-white text-xs font-semibold">890</span></div>
+            </div>
+          </div>
+          <div className="absolute" style={{ bottom: '8%', left: '8%', right: '25%', zIndex: 10 }}>
+            <div className="flex items-center gap-2 mb-2"><div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500"></div><div><p className="text-white font-semibold text-sm">@username</p></div></div>
+            <p className="text-white text-sm mb-2">Titre de la vidéo #hashtag #tendance</p>
+            <div className="flex items-center gap-2"><svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg><p className="text-white text-xs">Son original</p></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+const PLANS = {
+  essai: {
+    name: 'Essai Gratuit',
+    posts_limit: 30,
+    price: 0,
+    accounts_limit: 1,
+    color: 'text-gray-300',
+    features: ['30 posts/mois', '1 compte TikTok', 'Support email'],
+    analytics: 'none',
+    stripeLink: null
+  },
+  starter: {
+    name: 'Starter',
+    posts_limit: 60,
+    price: 9.99,
+    accounts_limit: 2,
+    color: 'text-blue-300',
+    features: ['60 publications/mois', 'Jusqu\'à 2 comptes TikTok', 'Support par email', 'Analytics de base'],
+    analytics: 'basic',
+    stripeLink: 'https://buy.stripe.com/4gM5kD2MzaLXdR02aw0oM0a'
+  },
+  professional: {
+    name: 'Professional',
+    posts_limit: -1,
+    price: 19,
+    accounts_limit: 4,
+    color: 'text-purple-300',
+    features: ['Publications illimitées', 'Jusqu\'à 4 comptes TikTok', 'Support prioritaire', 'Analytics complètes', 'Stats par compte'],
+    analytics: 'complete',
+    stripeLink: 'https://buy.stripe.com/aFa4gzaf1f2d28i2aw0oM0b'
+  },
+  enterprise: {
+    name: 'Enterprise',
+    posts_limit: -1,
+    price: 29,
+    accounts_limit: 6,
+    color: 'text-green-300',
+    features: ['Publications illimitées', 'Jusqu\'à 6 comptes TikTok', 'Toutes les fonctionnalités', 'Support dédié 24/7', 'Analytics avancées', 'Planification intelligente IA', 'Stats détaillées par compte'],
+    analytics: 'advanced',
+    stripeLink: 'https://buy.stripe.com/7sY3cv2MzbQ13cm9CY0oM0c'
+  }
+};
+
+const Card = ({ children, className = '', hover = true }) => (
+  <div className={`rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 shadow-2xl p-4 md:p-6 ${hover ? 'hover:bg-white/15 hover:shadow-3xl transition-all duration-300 transform md:hover:-translate-y-2' : ''} ${className}`}>
+    {children}
+  </div>
+);
+
+function SmartScheduling() {
+  const [selectedCountry, setSelectedCountry] = useState('france');
+  const [currentDay, setCurrentDay] = useState(new Date().getDay());
+  const [currentHour, setCurrentHour] = useState(new Date().getHours());
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const COUNTRY_DATA = {
+    france: {
+      name: 'France',
+      flag: '🇫🇷',
+      schedule: {
+        0: { // Dimanche
+          slots: [
+            { time: '10h-12h', boost: 35 },
+            { time: '18h-21h', boost: 38 }
+          ]
+        },
+        1: { // Lundi
+          slots: [
+            { time: '9h', boost: 30 },
+            { time: '12h-14h', boost: 35 },
+            { time: '19h-22h', boost: 40 }
+          ]
+        },
+        2: { // Mardi
+          slots: [
+            { time: '10h', boost: 32 },
+            { time: '13h-16h', boost: 36 },
+            { time: '20h-23h', boost: 38 }
+          ]
+        },
+        3: { // Mercredi
+          slots: [
+            { time: '8h-10h', boost: 33 },
+            { time: '12h-14h', boost: 35 },
+            { time: '19h-21h', boost: 37 }
+          ]
+        },
+        4: { // Jeudi
+          slots: [
+            { time: '9h', boost: 31 },
+            { time: '12h', boost: 34 },
+            { time: '19h', boost: 36 }
+          ]
+        },
+        5: { // Vendredi
+          slots: [
+            { time: '7h-9h', boost: 34 },
+            { time: '12h-14h', boost: 37 },
+            { time: '18h-21h', boost: 42 }
+          ]
+        },
+        6: { // Samedi
+          slots: [
+            { time: '11h', boost: 33 },
+            { time: '19h-20h', boost: 36 }
+          ]
+        }
+      }
+    },
+    usa: {
+      name: 'USA',
+      flag: '🇺🇸',
+      schedule: {
+        0: { slots: [{ time: '10h-12h', boost: 35 }, { time: '18h-21h', boost: 38 }] },
+        1: { slots: [{ time: '9h', boost: 30 }, { time: '12h-14h', boost: 35 }, { time: '19h-22h', boost: 40 }] },
+        2: { slots: [{ time: '10h', boost: 32 }, { time: '13h-16h', boost: 36 }, { time: '20h-23h', boost: 38 }] },
+        3: { slots: [{ time: '8h-10h', boost: 33 }, { time: '12h-14h', boost: 35 }, { time: '19h-21h', boost: 37 }] },
+        4: { slots: [{ time: '9h', boost: 31 }, { time: '12h', boost: 34 }, { time: '19h', boost: 36 }] },
+        5: { slots: [{ time: '7h-9h', boost: 34 }, { time: '12h-14h', boost: 37 }, { time: '18h-21h', boost: 42 }] },
+        6: { slots: [{ time: '11h', boost: 33 }, { time: '19h-20h', boost: 36 }] }
+      }
+    },
+    uk: {
+      name: 'Royaume-Uni',
+      flag: '🇬🇧',
+      schedule: {
+        0: { slots: [{ time: '10h-12h', boost: 35 }, { time: '18h-21h', boost: 38 }] },
+        1: { slots: [{ time: '9h', boost: 30 }, { time: '12h-14h', boost: 35 }, { time: '19h-22h', boost: 40 }] },
+        2: { slots: [{ time: '10h', boost: 32 }, { time: '13h-16h', boost: 36 }, { time: '20h-23h', boost: 38 }] },
+        3: { slots: [{ time: '8h-10h', boost: 33 }, { time: '12h-14h', boost: 35 }, { time: '19h-21h', boost: 37 }] },
+        4: { slots: [{ time: '9h', boost: 31 }, { time: '12h', boost: 34 }, { time: '19h', boost: 36 }] },
+        5: { slots: [{ time: '7h-9h', boost: 34 }, { time: '12h-14h', boost: 37 }, { time: '18h-21h', boost: 42 }] },
+        6: { slots: [{ time: '11h', boost: 33 }, { time: '19h-20h', boost: 36 }] }
+      }
+    }
+  };
+
+  const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  const DAY_INDICES = [1, 2, 3, 4, 5, 6, 0]; // Lundi à Dimanche
+  const SLOTS_PER_DAY = 3; // Nombre fixe de créneaux à afficher par jour
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      setCurrentDay(now.getDay());
+      setCurrentHour(now.getHours());
+    }, 60000); // Vérifier chaque minute
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const countryData = COUNTRY_DATA[selectedCountry];
+  const todaySchedule = countryData.schedule[currentDay];
+  
+  // Trouver le prochain meilleur créneau (non passé)
+  const upcomingSlots = todaySchedule.slots.filter(slot => {
+    const endHour = parseInt(slot.time.split('-')[1]?.replace('h', '') || slot.time.replace('h', ''));
+    return currentHour < endHour;
+  });
+  
+  const bestSlot = upcomingSlots.length > 0 
+    ? upcomingSlots.reduce((max, slot) => slot.boost > max.boost ? slot : max, upcomingSlots[0])
+    : todaySchedule.slots[0];
+
+  // Fonction pour vérifier si un horaire est passé
+  const isTimePassed = (timeSlot, dayIndex) => {
+    if (dayIndex !== currentDay) return dayIndex < currentDay;
+    
+    // Extraire l'heure de fin du créneau
+    const endHour = parseInt(timeSlot.split('-')[1]?.replace('h', '') || timeSlot.replace('h', ''));
+    return currentHour >= endHour;
+  };
+
+  // Fonction pour obtenir les créneaux d'un jour avec padding centré
+  const getDaySlots = (dayIndex) => {
+    const daySchedule = countryData.schedule[dayIndex];
+    if (!daySchedule) return Array(SLOTS_PER_DAY).fill(null);
+    
+    const slots = [...daySchedule.slots];
+    const emptySlots = SLOTS_PER_DAY - slots.length;
+    
+    if (emptySlots > 0) {
+      // Calculer combien de cases vides ajouter avant et après
+      const emptyBefore = Math.floor(emptySlots / 2);
+      const emptyAfter = emptySlots - emptyBefore;
+      
+      // Ajouter des nulls avant et après pour centrer
+      const paddedSlots = [
+        ...Array(emptyBefore).fill(null),
+        ...slots,
+        ...Array(emptyAfter).fill(null)
+      ];
+      
+      return paddedSlots;
+    }
+    
+    return slots.slice(0, SLOTS_PER_DAY);
+  };
+
+  return (
+    <div className="mb-8">
+      <Card className="bg-white/10 backdrop-blur-md"> {/* hover is true by default now */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="font-semibold text-white mb-2 text-lg">Planification intelligente</h3>
+            <p className="text-sm text-gray-300">Optimisez l'heure de publication selon l'engagement historique.</p>
+          </div>
+          
+          <div className="relative">
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 rounded-2xl px-4 py-2.5 text-white transition-all"
+            >
+              <Globe className="w-4 h-4" />
+              <span className="text-2xl">{countryData.flag}</span>
+              <span className="hidden sm:inline">{countryData.name}</span>
+            </button>
+            
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-gray-900/95 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl overflow-hidden z-50">
+                {Object.entries(COUNTRY_DATA).map(([key, data]) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setSelectedCountry(key);
+                      setDropdownOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-all ${
+                      selectedCountry === key ? 'bg-white/20' : ''
+                    }`}
+                  >
+                    <span className="text-2xl">{data.flag}</span>
+                    <span className="text-white text-sm">{data.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-2xl p-4 md:p-6 border border-gray-700">
+          <div className="overflow-x-auto">
+            <div className="min-w-[600px]">
+              <div className="grid grid-cols-7 gap-2 md:gap-3 mb-6">
+                {DAYS.map((day, index) => {
+                  const dayIndex = DAY_INDICES[index];
+                  const daySlots = getDaySlots(dayIndex);
+                  
+                  return (
+                    <div key={dayIndex} className="text-center">
+                      <div className={`text-xs font-medium mb-3 transition-all ${
+                        dayIndex === currentDay 
+                          ? 'text-indigo-300 font-bold text-sm' 
+                          : 'text-gray-300'
+                      }`}>
+                        {day}
+                      </div>
+                      <div className="space-y-2">
+                        {daySlots.map((slot, slotIndex) => {
+                          if (!slot) {
+                            // Case vide en noir
+                            return (
+                              <div key={slotIndex} className="relative">
+                                <div className="h-8 md:h-10 rounded-lg border border-white/20 bg-black" />
+                              </div>
+                            );
+                          }
+                          
+                          const isCurrentDay = dayIndex === currentDay;
+                          const timePassed = isTimePassed(slot.time, dayIndex);
+                          
+                          return (
+                            <div key={slotIndex} className="relative group">
+                              <div className={`h-8 md:h-10 rounded-lg border border-white/40 transition-all ${
+                                timePassed
+                                  ? 'bg-gray-500/50'
+                                  : 'bg-white/20 hover:bg-white/30 cursor-pointer'
+                              }`}>
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                  <span className="text-[10px] font-semibold text-white bg-black/70 px-2 py-1 rounded whitespace-nowrap">
+                                    {slot.time}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          
+          <div className="text-center bg-indigo-500/10 rounded-xl p-4 border border-indigo-500/30">
+            <p className="text-indigo-300 font-semibold mb-1">
+              Meilleur créneau aujourd'hui: {DAYS[DAY_INDICES.indexOf(currentDay)]} {bestSlot.time}
+            </p>
+            <p className="text-gray-400 text-sm">+{bestSlot.boost}% d'engagement en moyenne</p>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function HuriaAssistant() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [messages, setMessages] = useState([{
+    id: 1,
+    role: 'assistant',
+    content: "Bonjour ! Je suis Huria, votre assistante IA pour Huboria 👋\n\nJe peux vous aider à :\n• Optimiser vos publications TikTok\n• Trouver les meilleurs hashtags\n• Améliorer vos titres et descriptions\n• Analyser les tendances\n• Planifier votre contenu\n\nComment puis-je vous aider aujourd'hui ?"
+  }]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return;
+    const userMessage = { id: Date.now(), role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const context = `Tu es Huria, l'assistante IA intelligente de Huboria, une plateforme de gestion de contenu TikTok.
+
+Tu aides les créateurs de contenu à :
+- Optimiser leurs publications TikTok
+- Trouver les meilleurs hashtags et tendances
+- Améliorer leurs titres et descriptions
+- Analyser leurs performances
+- Planifier leur contenu stratégiquement
+- Donner des conseils créatifs
+
+Ton ton est amical, professionnel et encourageant. Tu donnes des conseils concrets et actionnables.
+
+Historique de conversation:
+${messages.map(m => `${m.role === 'user' ? 'Utilisateur' : 'Huria'}: ${m.content}`).join('\n')}
+
+Utilisateur: ${input}
+
+Réponds de manière utile et pertinente:`;
+
+      const response = await base44.integrations.Core.InvokeLLM({ prompt: context, add_context_from_internet: false });
+      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: response }]);
+    } catch (error) {
+      console.error('Erreur Huria:', error);
+      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: "Désolée, j'ai rencontré une erreur. Pouvez-vous réessayer ?" }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const quickPrompts = ["Comment optimiser mes hashtags ?", "Quelles sont les tendances actuelles ?", "Aide-moi à écrire une description", "Meilleur moment pour publier ?"];
+
+  if (!isOpen) {
+    return (
+      <button onClick={() => setIsOpen(true)} className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300 z-50 group border-2 border-gray-600">
+        <Sparkles className="w-7 h-7 text-white group-hover:rotate-12 transition-transform" />
+        <div className="absolute -top-1 -right-1 w-4 h-4 bg-gray-400 rounded-full border-2 border-white animate-pulse"></div>
+      </button>
+    );
+  }
+
+  return (
+    <div className={`fixed ${isMinimized ? 'bottom-6 right-6' : 'bottom-6 right-6 sm:bottom-8 sm:right-8'} z-50 transition-all duration-300`}>
+      <div className={`bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden ${isMinimized ? 'w-80 h-16' : 'w-[95vw] sm:w-96 h-[600px] max-h-[80vh]'}`}>
+        <div className="bg-gradient-to-r from-gray-700 to-gray-900 p-4 flex items-center justify-between border-b border-gray-600">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md border border-gray-500"><Sparkles className="w-5 h-5 text-white" /></div>
+            <div><h3 className="font-bold text-white">Huria</h3><p className="text-xs text-gray-300">Assistante IA</p></div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setIsMinimized(!isMinimized)} className="p-2 hover:bg-white/20 rounded-xl transition-colors">{isMinimized ? <Maximize2 className="w-5 h-5 text-white" /> : <Minimize2 className="w-5 h-5 text-white" />}</button>
+            <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors"><X className="w-5 h-5 text-white" /></button>
+          </div>
+        </div>
+        {!isMinimized && (
+          <>
+            <div className="h-[400px] overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-900/20 to-gray-800/20">
+              {messages.map((message) => (
+                <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${message.role === 'user' ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white border border-gray-500' : 'bg-white/10 backdrop-blur-md text-white border border-white/20'}`}>
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  </div>
+                </div>
+              ))}
+              {loading && <div className="flex justify-start"><div className="bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-2xl px-4 py-3"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div></div>}
+              <div ref={messagesEndRef} />
+            </div>
+            {messages.length === 1 && (
+              <div className="px-4 pb-2 bg-gray-900/20">
+                <div className="grid grid-cols-2 gap-2">
+                  {quickPrompts.map((prompt, i) => (
+                    <button key={i} onClick={() => { setInput(prompt); setTimeout(() => sendMessage(), 100); }} className="text-xs bg-gray-700/30 hover:bg-gray-700/50 text-white border border-gray-600 rounded-xl px-3 py-2 transition-colors text-left">{prompt}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="p-4 border-t border-white/10 bg-gray-900/20">
+              <div className="flex gap-2">
+                <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={handleKeyPress} placeholder="Posez-moi une question..." className="flex-1 bg-white/10 backdrop-blur-md border border-gray-600 rounded-2xl px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500" disabled={loading} />
+                <button onClick={sendMessage} disabled={loading || !input.trim()} className="bg-gradient-to-r from-gray-600 to-gray-800 hover:from-gray-700 hover:to-gray-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl px-4 py-2 transition-colors border border-gray-500"><Send className="w-5 h-5 text-white" /></button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Dashboard() {
+  const { user, logout, changePlan } = useAuth();
+  const toast = useToast();
+  const [title, setTitle] = useState('');
+  const [tags, setTags] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [file, setFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [linkedAccounts, setLinkedAccounts] = useState([]);
+  const [selectedAccounts, setSelectedAccounts] = useState({});
+  const [activeView, setActiveView] = useState('overview');
+  const [selectedAccountForStats, setSelectedAccountForStats] = useState(null);
+  const fileInputRef = useRef(null);
+  const [posts, setPosts] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [aiScheduledPost, setAiScheduledPost] = useState(null);
+  const [contentType, setContentType] = useState('video'); // 'video' ou 'carousel'
+  const [carouselImages, setCarouselImages] = useState([]); // Array of {file: File, url: string}
+
+  // Effect to revoke carousel image URLs when component unmounts or carouselImages change
+  useEffect(() => {
+    return () => {
+      carouselImages.forEach(img => URL.revokeObjectURL(img.url));
+    };
+  }, [carouselImages]);
+
+  // This useEffect ensures any previous `previewUrl` is revoked when it changes
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  // This useEffect updates previewUrl based on file or carouselImages
+  useEffect(() => {
+    if (contentType === 'video' && file) {
+      setPreviewUrl(URL.createObjectURL(file));
+    } else if (contentType === 'carousel' && carouselImages.length > 0) {
+      // Use the URL of the first carousel image as the main preview
+      setPreviewUrl(carouselImages[0].url);
+    } else {
+      setPreviewUrl('');
+    }
+  }, [file, contentType, carouselImages]);
+
+  const userPlan = PLANS[user?.plan || 'essai'];
+  const canAccessBasicAnalytics = userPlan.analytics !== 'none';
+  const canAccessCompleteAnalytics = userPlan.analytics === 'complete' || userPlan.analytics === 'advanced';
+  const canAccessAdvancedAnalytics = userPlan.analytics === 'advanced';
+  const canAccessSmartScheduling = userPlan.analytics === 'advanced';
+  const canAccessAnalyticsPage = userPlan.analytics === 'complete' || userPlan.analytics === 'advanced';
+
+  const totalViews = linkedAccounts.reduce((sum, acc) => sum + (acc.stats?.views || 0), 0);
+  const totalLikes = linkedAccounts.reduce((sum, acc) => sum + (acc.stats?.likes || 0), 0);
+
+  const stats = [
+    { title: 'Vues totales', value: totalViews > 0 ? (totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}k` : totalViews.toString()) : '0', icon: Eye, bgColor: 'bg-white/10', iconColor: 'text-white' },
+    { title: 'Likes', value: totalLikes > 0 ? (totalLikes >= 1000 ? `${(totalLikes / 1000).toFixed(1)}k` : totalLikes.toString()) : '0', icon: Heart, bgColor: 'bg-white/10', iconColor: 'text-white' },
+    { title: 'Posts', value: posts.length.toString(), icon: Send, bgColor: 'bg-white/10', iconColor: 'text-white' },
+    { title: 'Comptes', value: linkedAccounts.length.toString(), icon: Users, bgColor: 'bg-white/10', iconColor: 'text-white' }
+  ];
+
+  const maxAccounts = userPlan.accounts_limit;
+  const selectedAccountsCount = Object.values(selectedAccounts).filter(Boolean).length;
+
+  const toggleSelectedAccount = (accountId) => {
+    const currentSelected = Object.values(selectedAccounts).filter(Boolean).length;
+    const isCurrentlySelected = selectedAccounts[accountId];
+    if (!isCurrentlySelected && currentSelected >= maxAccounts) {
+      toast.push(`Limite atteinte pour le plan ${user?.plan || 'essai'}`);
+      return;
+    }
+    setSelectedAccounts((prev) => ({ ...prev, [accountId]: !prev[accountId] }));
+  };
+
+  const addTikTokAccount = () => {
+    if (linkedAccounts.length >= maxAccounts) {
+      toast.push(`Limite de ${maxAccounts} comptes atteinte pour votre plan`);
+      return;
+    }
+
+    const accountNames = ['brand_official', 'lifestyle_content', 'music_vibes', 'food_stories', 'tech_reviews', 'fitness_journey', 'gaming_addict', 'art_daily', 'travel_bug'];
+    const availableNames = accountNames.filter(name => !linkedAccounts.find(acc => acc.username === name));
+
+    if (availableNames.length === 0) {
+      toast.push('Tous les comptes de démonstration sont déjà liés');
+      return;
+    }
+
+    const newAccount = {
+      id: Date.now(),
+      username: availableNames[0],
+      displayName: availableNames[0].replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      followers: Math.floor(Math.random() * 50000) + 1000,
+      verified: Math.random() > 0.7,
+      access_token: null, // Mock accounts don't have real tokens
+      refresh_token: null,
+      expires_at: null,
+      stats: {
+        views: Math.floor(Math.random() * 100000) + 10000,
+        likes: Math.floor(Math.random() * 10000) + 500,
+        shares: Math.floor(Math.random() * 1000) + 100,
+        comments: Math.floor(Math.random() * 500) + 50,
+        engagement_rate: (Math.random() * 5 + 2).toFixed(2),
+        best_time: ['18:00-20:00', '14:00-16:00', '21:00-23:00'][Math.floor(Math.random() * 3)],
+        growth: (Math.random() * 20 + 5).toFixed(1)
+      }
+    };
+
+    setLinkedAccounts(prev => [...prev, newAccount]);
+    toast.push(`Compte @${newAccount.username} lié avec succès !`);
+  };
+
+  const removeAccount = (accountId) => {
+    setLinkedAccounts(prev => prev.filter(acc => acc.id !== accountId));
+    setSelectedAccounts(prev => {
+      const newSelected = { ...prev };
+      delete newSelected[accountId];
+      return newSelected;
+    });
+    toast.push('Compte supprimé');
+  };
+
+  const handleFile = (e) => {
+    const files = e.target?.files;
+    if (!files || files.length === 0) return;
+
+    if (contentType === 'carousel') {
+      const newImageObjects = Array.from(files).map(f => ({
+        file: f,
+        url: URL.createObjectURL(f)
+      }));
+      setCarouselImages(prev => {
+        const updatedImages = [...prev, ...newImageObjects];
+        const uniqueFiles = new Set(updatedImages.map(item => item.file));
+        const uniqueImages = updatedImages.filter(item => uniqueFiles.delete(item.file)); // Keep unique file objects
+
+        return uniqueImages.slice(0, 10); // Max 10 images
+      });
+      toast.push(`${newImageObjects.length} image(s) ajoutée(s) au carrousel`);
+    } else { // contentType === 'video'
+      setFile(files[0]);
+      toast.push('Fichier chargé (aperçu activé)');
+    }
+  };
+
+  const removeCarouselImage = (index) => {
+    setCarouselImages(prev => {
+      const imageToRemove = prev[index];
+      if (imageToRemove && imageToRemove.url) {
+        URL.revokeObjectURL(imageToRemove.url); // Revoke URL for the removed image
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length === 0) return;
+
+    if (contentType === 'carousel') {
+      const newImageObjects = files.map(f => ({
+        file: f,
+        url: URL.createObjectURL(f)
+      }));
+      setCarouselImages(prev => {
+        const updatedImages = [...prev, ...newImageObjects];
+        const uniqueFiles = new Set(updatedImages.map(item => item.file));
+        const uniqueImages = updatedImages.filter(item => uniqueFiles.delete(item.file)); // Keep unique file objects
+        return uniqueImages.slice(0, 10); // Max 10 images
+      });
+      toast.push(`${files.length} image(s) ajoutée(s) au carrousel par glisser-déposer`);
+    } else { // contentType === 'video'
+      setFile(files[0]);
+      toast.push('Fichier chargé par glisser-déposer');
+    }
+  };
+
+  const publishNow = () => {
+    if (contentType === 'video' && !file) {
+      return toast.push('Ajoutez une vidéo ou image avant de publier');
+    }
+    if (contentType === 'carousel' && carouselImages.length === 0) {
+      return toast.push('Ajoutez des images au carrousel avant de publier');
+    }
+    if (selectedAccountsCount === 0) return toast.push('Sélectionnez au moins un compte TikTok');
+
+    const selectedAccountsList = linkedAccounts.filter(acc => selectedAccounts[acc.id]);
+    const newPost = {
+      id: Date.now(),
+      title: title || 'Sans titre',
+      tags,
+      accounts: selectedAccountsList.map(acc => acc.username),
+      contentType: contentType,
+      fileName: contentType === 'video' ? file.name : carouselImages.map(item => item.file.name).join(', '),
+      preview: contentType === 'video' ? previewUrl : (carouselImages.length > 0 ? carouselImages[0].url : ''),
+      carouselImages: contentType === 'carousel' ? carouselImages.map(item => ({ name: item.file.name, url: item.url })) : [],
+      created_at: new Date().toISOString()
+    };
+    setPosts((p) => [newPost, ...p]);
+    toast.push(`Publié sur ${selectedAccountsList.length} compte(s)`);
+    setFile(null);
+    setCarouselImages([]);
+    setTitle('');
+    setTags('');
+    setSelectedAccounts({});
+  };
+
+  const schedulePost = () => {
+    if (contentType === 'video' && !file) {
+      return toast.push('Ajoutez une vidéo ou image avant de programmer');
+    }
+    if (contentType === 'carousel' && carouselImages.length === 0) {
+      return toast.push('Ajoutez des images au carrousel avant de programmer');
+    }
+    if (!date || !time) return toast.push('Sélectionnez date et heure pour programmer');
+    if (selectedAccountsCount === 0) return toast.push('Sélectionnez au moins un compte TikTok');
+
+    let selectedDate = new Date(`${date}T${time}`);
+    const now = new Date();
+
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+    if (selectedDate < now && selectedDate >= startOfWeek) {
+      selectedDate.setDate(selectedDate.getDate() + 7);
+      toast.push('Date passée détectée - programmé pour la semaine prochaine');
+    }
+
+    const maxDate = new Date(endOfWeek);
+    maxDate.setDate(maxDate.getDate() + 7);
+
+    if (selectedDate < startOfWeek || selectedDate >= maxDate) {
+      toast.push('Vous ne pouvez programmer que pour cette semaine ou la semaine prochaine');
+      return;
+    }
+
+    const selectedAccountsList = linkedAccounts.filter(acc => selectedAccounts[acc.id]);
+    const scheduled = {
+      id: Date.now(),
+      title: title || 'Sans titre',
+      tags,
+      accounts: selectedAccountsList.map(acc => acc.username),
+      contentType: contentType,
+      fileName: contentType === 'video' ? file.name : carouselImages.map(item => item.file.name).join(', '),
+      preview: contentType === 'video' ? previewUrl : (carouselImages.length > 0 ? carouselImages[0].url : ''),
+      carouselImages: contentType === 'carousel' ? carouselImages.map(item => ({ name: item.file.name, url: item.url })) : [],
+      scheduled_at: selectedDate.toISOString()
+    };
+    setPosts((p) => [scheduled, ...p]);
+
+    const dayName = selectedDate.toLocaleDateString('fr-FR', { weekday: 'long' });
+    const timeStr = selectedDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    toast.push(`Programmé pour ${dayName} à ${timeStr}`);
+
+    setFile(null);
+    setCarouselImages([]);
+    setTitle('');
+    setTags('');
+    setDate('');
+    setTime('');
+    setSelectedAccounts({});
+  };
+
+  const cancelScheduledPost = (postId) => {
+    setPosts(prev => prev.filter(p => p.id !== postId));
+    toast.push('Publication annulée');
+  };
+
+  const getWeekSchedule = () => {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const weekDays = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    const schedule = [];
+
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(startOfWeek);
+      day.setDate(startOfWeek.getDate() + i);
+
+      const scheduledPosts = posts.filter(post => {
+        if (!post.scheduled_at) return false;
+        const postDate = new Date(post.scheduled_at);
+        return postDate.getDay() === day.getDay();
+      }).sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+
+      schedule.push({
+        day: weekDays[day.getDay()],
+        date: day,
+        isToday: day.toDateString() === now.toDateString(),
+        posts: scheduledPosts
+      });
+    }
+
+    return schedule;
+  };
+
+  const weekSchedule = getWeekSchedule();
+
+  const handleAISchedule = (scheduleData) => {
+    setAiScheduledPost(scheduleData);
+
+    const newPost = {
+      id: Date.now(),
+      title: title || 'Publication planifiée par IA',
+      tags: tags || '',
+      accounts: [scheduleData.account.username],
+      contentType: contentType,
+      fileName: contentType === 'video' ? file?.name || 'Contenu IA' : carouselImages.map(item => item.file.name).join(', ') || 'Contenu IA',
+      preview: contentType === 'video' ? previewUrl || '' : (carouselImages.length > 0 ? carouselImages[0].url : ''),
+      carouselImages: contentType === 'carousel' ? carouselImages.map(item => ({ name: item.file.name, url: item.url })) : [],
+      scheduled_at: scheduleData.scheduled_at,
+      ai_prediction: scheduleData.prediction,
+      slot: scheduleData.slot
+    };
+
+    setPosts((p) => [newPost, ...p]);
+    toast.push(`Publication planifiée avec IA pour ${scheduleData.slot.day} à ${scheduleData.slot.time}`);
+    setActiveView('schedule-analytics');
+    setFile(null);
+    setCarouselImages([]);
+  };
+
+  const SidebarContent = () => (
+    <>
+      <div className="p-4 sm:p-6 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center">
+            <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_68d8061bb3d230f8bc63e27d/bc1fe992a_IMG_2947.png" alt="Logo" className="w-8 h-8 object-contain"/>
+          </div>
+          <span className="font-bold text-white text-lg">huboria</span>
+        </div>
+      </div>
+      <nav className="p-4 sm:p-6 space-y-3">
+        {['overview', 'smart-scheduler', 'analytics', 'posts', 'accounts', 'profile'].map(view => {
+          const icons = {
+            overview: BarChart3,
+            'smart-scheduler': Zap,
+            analytics: TrendingUp,
+            posts: Upload,
+            accounts: Users,
+            profile: User
+          };
+          const labels = {
+            overview: 'Tableau de bord',
+            'smart-scheduler': 'Planification IA',
+            analytics: 'Analytics',
+            posts: 'Mes posts',
+            accounts: 'Comptes',
+            profile: 'Profil'
+          };
+          const Icon = icons[view];
+          const isLocked = view === 'smart-scheduler' && user?.plan !== 'enterprise';
+
+          return (
+            <button
+              key={view}
+              onClick={() => {
+                if (isLocked) {
+                  toast.push('Fonctionnalité disponible avec le plan Enterprise');
+                  return;
+                }
+                setActiveView(view);
+                setSidebarOpen(false);
+              }}
+              className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 ${
+                activeView === view
+                  ? 'bg-white/20 text-white backdrop-blur-md border border-white/30 shadow-lg'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
+              } ${isLocked ? 'opacity-50' : ''}`}
+            >
+              <Icon className="w-5 h-5" />
+              <span className="font-medium">{labels[view]}</span>
+              {isLocked && <Lock className="w-4 h-4 ml-auto" />}
+            </button>
+          )
+        })}
+      </nav>
+      <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 border-t border-white/10">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/20"><User className="w-6 h-6 text-white" /></div>
+          <div className="flex-1 overflow-hidden"><p className="font-medium text-white truncate">{user?.full_name || user?.email}</p><p className="text-sm text-gray-300 truncate">Plan {userPlan.name}</p></div>
+        </div>
+        <button onClick={logout} className="flex items-center justify-center gap-2 text-white hover:bg-white/10 px-4 py-2 rounded-2xl w-full text-sm transition-all backdrop-blur-md hover:text-white"><LogOut className="w-4 h-4"/>Déconnexion</button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="min-h-screen" style={{ backgroundImage: `url('https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_68d8061bb3d230f8bc63e27d/18def7c61_IMG_2884.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
+      <div className={`fixed top-0 left-0 h-full w-64 bg-black/50 backdrop-blur-xl border-r border-white/10 z-40 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:hidden`}>
+        <SidebarContent />
+      </div>
+      {sidebarOpen && <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 bg-black/30 z-30 lg:hidden"></div>}
+
+      <div className="hidden lg:block fixed left-0 top-0 w-64 h-full bg-black/20 backdrop-blur-md border-r border-white/10 z-30">
+        <SidebarContent />
+      </div>
+
+      <header className="lg:hidden sticky top-0 bg-black/20 backdrop-blur-md border-b border-white/10 z-20 p-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center">
+            <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_68d8061bb3d230f8bc63e27d/18def7c61_IMG_2884.jpg" alt="Logo" className="w-7 h-7 object-contain"/>
+          </div>
+          <span className="font-bold text-white text-md">huboria</span>
+        </div>
+        <button onClick={() => setSidebarOpen(true)} className="text-white p-2">
+          <Menu className="w-6 h-6" />
+        </button>
+      </header>
+
+      <main className="lg:ml-64 p-2 sm:p-4 md:p-6 lg:p-8">
+        <div className="mb-6 md:mb-12">
+          <h1 className="text-2xl md:text-4xl font-bold text-white mb-2 flex items-center gap-2 md:gap-3">
+            Bonjour, {user?.full_name || 'Utilisateur'} <span className="text-xl md:text-3xl">👋</span>
+          </h1>
+          <p className="text-gray-300 text-sm md:text-lg">Voici un aperçu de vos performances.</p>
+        </div>
+
+        {activeView === 'overview' && (
+          <>
+            <div className="mb-6 md:mb-8">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+                {stats.map((stat, i) => (
+                  <div key={i} style={{ filter: !canAccessBasicAnalytics ? 'blur(8px)' : 'none' }}>
+                    <Card className="text-center">
+                      <div className="flex flex-col items-center">
+                        <div className={`p-2 sm:p-4 ${stat.bgColor} rounded-3xl mb-2 sm:mb-4 backdrop-blur-md border border-white/20`}>
+                          <stat.icon className={`w-5 h-5 sm:w-8 sm:h-8 ${stat.iconColor}`} />
+                        </div>
+                        <p className="text-[10px] sm:text-sm text-gray-300 mb-1">{stat.title}</p>
+                        <p className="text-xl sm:text-3xl font-bold text-white">{stat.value}</p>
+                      </div>
+                    </Card>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {!canAccessBasicAnalytics && (
+              <div className="mb-6 md:mb-8">
+                <div className="bg-transparent backdrop-blur-md rounded-3xl px-4 md:px-8 py-3 md:py-4 border-2 border-white flex items-center gap-3 md:gap-6 w-full shadow-2xl">
+                  <Lock className="w-8 h-8 md:w-10 md:h-10 text-white flex-shrink-0" />
+                  <div className="flex-1 text-left">
+                    <h3 className="text-sm md:text-lg font-bold text-white">Déverrouillez les statistiques</h3>
+                    <p className="text-xs md:text-sm text-gray-200">Passez au plan Starter pour accéder aux stats</p>
+                  </div>
+                  <button
+                    onClick={() => { changePlan('starter'); toast.push('Plan changé en Starter'); }}
+                    className="bg-transparent border-2 border-blue-400 text-blue-400 hover:bg-blue-400/10 px-3 md:px-4 py-1.5 md:py-2 rounded-2xl flex items-center gap-1 md:gap-2 transition-all flex-shrink-0"
+                  >
+                    <Zap className="w-3 h-3 md:w-4 md:h-4" />
+                    <span className="text-xs md:text-sm font-semibold">Starter</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6 mb-6 sm:mb-8">
+              <Card className="bg-gray-800/30">
+                <div className="flex items-center gap-2 text-white font-semibold mb-4 sm:mb-6 text-sm sm:text-lg">
+                  <Upload className="w-4 h-4 sm:w-5 sm:h-5"/>
+                  Importer le contenu
+                </div>
+
+                {/* Sélecteur Type de contenu */}
+                <div className="mb-4">
+                  <label className="text-xs sm:text-sm font-medium text-gray-300 mb-2 block">Type de contenu</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => { setContentType('video'); setCarouselImages([]); setFile(null); }}
+                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all ${
+                        contentType === 'video'
+                          ? 'bg-white/20 border-white/40 text-white'
+                          : 'bg-gray-700/20 border-gray-600 text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      <PlayCircle className="w-4 h-4" />
+                      <span className="text-sm font-medium">Vidéo</span>
+                    </button>
+                    <button
+                      onClick={() => { setContentType('carousel'); setFile(null); setPreviewUrl(''); }}
+                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all ${
+                        contentType === 'carousel'
+                          ? 'bg-white/20 border-white/40 text-white'
+                          : 'bg-gray-700/20 border-gray-600 text-gray-300 hover:border-gray-500'
+                      }`}
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      <span className="text-sm font-medium">Carrousel</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDrop}
+                  className="border-2 border-dashed border-gray-500 rounded-2xl p-4 sm:p-8 text-center mb-4 sm:mb-6 hover:border-gray-400 transition-colors cursor-pointer bg-gray-700/20">
+                  {contentType === 'carousel' && carouselImages.length > 0 ? (
+                    <div className="space-y-4">
+                      <div className="flex gap-2 overflow-x-auto pb-2">
+                        {carouselImages.map((img, i) => (
+                          <div key={i} className="relative flex-shrink-0 w-20 h-20">
+                            <img src={img.url} alt={`carousel-${i}`} className="w-full h-full object-cover rounded-lg" />
+                            <button
+                              onClick={(e) => { e.stopPropagation(); removeCarouselImage(i); }}
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center"
+                            >
+                              <X className="w-4 h-4 text-white" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-gray-400 text-xs">{carouselImages.length}/10 images</p>
+                    </div>
+                  ) : previewUrl && contentType === 'video' ? (
+                    <div>
+                      {file && file.type && file.type.startsWith('video') ? (
+                        <video src={previewUrl} controls className="w-full rounded-2xl mb-2" />
+                      ) : (
+                        <img src={previewUrl} alt="preview" className="w-full rounded-2xl mb-2" />
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {contentType === 'carousel' ? (
+                        <ImageIcon className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-2 sm:mb-3" />
+                      ) : (
+                        <Upload className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-2 sm:mb-3" />
+                      )}
+                      <p className="text-gray-400 text-xs sm:text-sm">
+                        {contentType === 'carousel' ? 'Ajouter des images (max 10)' : 'Glisser-déposer ou parcourir'}
+                      </p>
+                      <p className="text-gray-500 text-[10px] sm:text-xs mt-1">
+                        {contentType === 'carousel' ? 'Images JPG, PNG' : 'Vidéo ou image'}
+                      </p>
+                    </>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={contentType === 'carousel' ? 'image/*' : 'video/*,image/*'}
+                    multiple={contentType === 'carousel'}
+                    onChange={handleFile}
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="mb-3 sm:mb-4">
+                  <label className="text-xs sm:text-sm font-medium text-gray-300 mb-1.5 block">Titre</label>
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Votre titre accrocheur"
+                    className="w-full rounded-xl border border-gray-600 bg-gray-700/30 backdrop-blur-md px-3 py-2 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  />
+                </div>
+
+                <div className="mb-3 sm:mb-4">
+                  <label className="text-xs sm:text-sm font-medium text-gray-300 mb-1.5 block flex items-center gap-2">
+                    <Hash className="w-3 h-3 sm:w-4 sm:h-4"/>
+                    Hashtags
+                  </label>
+                  <input
+                    value={tags}
+                    onChange={(e) => setTags(e.target.value)}
+                    placeholder="#exemple #hashtag #tendance"
+                    className="w-full rounded-xl border border-gray-600 bg-gray-700/30 backdrop-blur-md px-3 py-2 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  />
+                </div>
+
+                <div className="mb-3 sm:mb-4">
+                  <label className="text-xs sm:text-sm font-medium text-gray-300 mb-1.5 block flex items-center gap-2">
+                    <Users className="w-3 h-3 sm:w-4 sm:h-4"/>
+                    Publier sur
+                  </label>
+                  {linkedAccounts.length === 0 ? (
+                    <div className="text-center py-4 sm:py-6 bg-gray-700/20 rounded-xl border border-gray-600">
+                      <p className="text-gray-400 text-xs sm:text-sm mb-2 sm:mb-3">Aucun compte lié</p>
+                      <Button onClick={addTikTokAccount} size="sm" className="bg-white/10 hover:bg-white/20 border-white/20 text-xs">
+                        <Plus className="w-3 h-3 mr-1" />
+                        Ajouter
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                        {linkedAccounts.map((account) => (
+                          <button
+                            key={account.id}
+                            onClick={() => toggleSelectedAccount(account.id)}
+                            disabled={!selectedAccounts[account.id] && selectedAccountsCount >= maxAccounts}
+                            className={`flex items-center justify-between rounded-xl border px-2 py-1.5 sm:py-2.5 text-[10px] sm:text-sm transition-all ${
+                              selectedAccounts[account.id]
+                                ? 'bg-white/20 border-white/40 text-white'
+                                : (!selectedAccounts[account.id] && selectedAccountsCount >= maxAccounts
+                                  ? 'bg-gray-700/20 border-gray-600 text-gray-500 cursor-not-allowed'
+                                  : 'bg-gray-700/20 border-gray-600 text-gray-300 hover:border-gray-500')
+                            }`}>
+                            <div className="flex items-center gap-1.5 overflow-hidden">
+                              <div className="w-5 h-5 bg-white/10 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0">
+                                {account.username[0].toUpperCase()}
+                              </div>
+                              <span className="truncate">@{account.username}</span>
+                            </div>
+                            {selectedAccounts[account.id] && <Check className="w-3 h-3 flex-shrink-0" />}
+                          </button>
+                        ))}
+                      {linkedAccounts.length < maxAccounts && (
+                        <Button onClick={addTikTokAccount} variant="outline" size="sm" className="w-full col-span-2 text-xs">
+                          <Plus className="w-3 h-3 mr-1" />
+                          Ajouter
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-3 sm:mb-6">
+                  <DateTimePicker
+                    date={date}
+                    time={time}
+                    onDateChange={setDate}
+                    onTimeChange={setTime}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-3 mb-3 sm:mb-6">
+                  <button
+                    onClick={publishNow}
+                    disabled={(contentType === 'video' && !file) || (contentType === 'carousel' && carouselImages.length === 0) || selectedAccountsCount === 0}
+                    className="flex items-center justify-center gap-1.5 bg-white text-gray-900 px-2 sm:px-4 py-1.5 sm:py-2.5 rounded-xl text-[10px] sm:text-sm font-medium hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    <Zap className="w-3 h-3 sm:w-4 sm:h-4"/>
+                    Publier
+                  </button>
+                  <button
+                    onClick={schedulePost}
+                    disabled={(contentType === 'video' && !file) || (contentType === 'carousel' && carouselImages.length === 0) || selectedAccountsCount === 0}
+                    className="flex items-center justify-center gap-1.5 bg-gray-700/50 border border-gray-600 text-white px-2 sm:px-4 py-1.5 sm:py-2.5 rounded-xl text-[10px] sm:text-sm font-medium hover:bg-gray-700/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4"/>
+                    Programmer
+                  </button>
+                </div>
+
+                <div className="mt-3 sm:mt-6 pt-3 sm:pt-6 border-t border-white/10">
+                  <h4 className="text-white font-semibold mb-2 sm:mb-4 flex items-center gap-1.5 text-xs sm:text-base">
+                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4"/>
+                    Programmation de la semaine
+                  </h4>
+                  <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                    {weekSchedule.map((daySchedule, i) => {
+                      const hasScheduled = daySchedule.posts.length > 0;
+
+                      return (
+                        <div key={i} className={`${daySchedule.isToday ? 'bg-gray-400/50 border-white/60 shadow-lg' : 'bg-white/5 border-white/20'} rounded-xl p-1 sm:p-2 border backdrop-blur-md transition-all duration-300 ${hasScheduled ? 'min-h-[140px]' : 'min-h-[80px]'}`}>
+                          <div className={`text-center text-[8px] sm:text-xs font-bold mb-1 sm:mb-2 ${daySchedule.isToday ? 'text-white' : 'text-gray-300'} break-words leading-tight`}>
+                            {daySchedule.day}
+                          </div>
+                          <div className="space-y-0.5 sm:space-y-1">
+                            {daySchedule.posts.map((post) => {
+                              const postTime = new Date(post.scheduled_at);
+                              const isToday = daySchedule.isToday;
+                              return (
+                                <button
+                                  key={post.id}
+                                  onClick={() => cancelScheduledPost(post.id)}
+                                  className={`w-full ${isToday ? 'bg-white/40 text-white hover:bg-white/50' : 'bg-gray-200/20 text-gray-200 hover:bg-gray-200/30'} rounded px-0.5 py-1 text-[7px] sm:text-[10px] font-medium text-center transition-colors cursor-pointer`}
+                                  title="Cliquer pour annuler"
+                                >
+                                  {postTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="bg-gray-800/30">
+                <div className="flex items-center gap-2 mb-4 sm:mb-6 text-white">
+                  <Smartphone className="w-4 h-4 sm:w-5 sm:h-5"/>
+                  <span className="font-semibold text-sm sm:text-lg">Aperçu TikTok</span>
+                </div>
+                <div className="flex justify-center">
+                  <div className="relative w-[250px] sm:w-[350px]" style={{ aspectRatio: '433/882' }}>
+                    <PhoneMockup
+                      contentType={contentType}
+                      videoSrc={contentType === 'video' && file && file.type && file.type.startsWith('video') ? previewUrl : undefined}
+                      src={contentType === 'video' && file && file.type && file.type.startsWith('image') ? previewUrl : undefined}
+                      carouselImages={contentType === 'carousel' ? carouselImages.map(img => img.url) : []}
+                    />
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Planification intelligente avec verrouillage */}
+            <div className="mb-8 relative">
+              {user?.plan !== 'enterprise' && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-sm bg-black/20 rounded-3xl">
+                  <div className="bg-transparent backdrop-blur-md rounded-3xl px-6 py-5 border-2 border-white max-w-md mx-4">
+                    <div className="flex items-center gap-4 mb-3">
+                      <Lock className="w-8 h-8 text-white flex-shrink-0" />
+                      <div>
+                        <h3 className="text-lg font-bold text-white">Planification Intelligente IA</h3>
+                        <p className="text-sm text-gray-200">Disponible avec le plan Enterprise</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        changePlan('enterprise');
+                        toast.push('Plan changé en Enterprise');
+                      }}
+                      className="w-full bg-transparent border-2 border-green-400 text-green-400 hover:bg-green-400/10 px-4 py-2.5 rounded-2xl flex items-center justify-center gap-2 transition-all font-semibold"
+                    >
+                      <Zap className="w-4 h-4" />
+                      Passer à Enterprise
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ filter: user?.plan !== 'enterprise' ? 'blur(8px)' : 'none', pointerEvents: user?.plan !== 'enterprise' ? 'none' : 'auto' }}>
+                <SmartScheduling />
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeView === 'posts' && (
+          <div>
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl md:text-3xl font-semibold text-white">Mes Posts</h2>
+              <Button onClick={() => setActiveView('overview')}>Retour</Button>
+            </div>
+            <Card>
+              {posts.length === 0 ? (
+                <div className="text-center py-12">
+                  <Upload className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-300">Aucune publication pour le moment</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {posts.map((post) => (
+                    <div key={post.id} className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                      <div className="flex gap-4">
+                        {post.contentType === 'carousel' && post.carouselImages && post.carouselImages.length > 0 ? (
+                          <div className="flex gap-1 overflow-x-auto w-24 h-24 rounded-xl flex-shrink-0">
+                            {post.carouselImages.map((img, idx) => (
+                              <img key={idx} src={img.url} alt={`carousel-${idx}`} className="w-full h-full object-cover" />
+                            ))}
+                          </div>
+                        ) : post.preview ? ( // For video or single image
+                          <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-700 flex-shrink-0">
+                            {post.contentType === 'video' ? (
+                              <video src={post.preview} className="w-full h-full object-cover" muted playsInline />
+                            ) : (
+                              <img src={post.preview} alt="preview" className="w-full h-full object-cover" />
+                            )}
+                          </div>
+                        ) : null}
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-white mb-1">{post.title}</h4>
+                          <p className="text-sm text-gray-400 mb-2">{post.tags}</p>
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {post.accounts.map((acc, i) => (
+                              <span key={i} className="text-xs bg-white/10 text-white px-2 py-1 rounded-lg">@{acc}</span>
+                            ))}
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {post.scheduled_at ? `Programmé pour ${new Date(post.scheduled_at).toLocaleString('fr-FR')}` : `Publié le ${new Date(post.created_at).toLocaleString('fr-FR')}`}
+                          </p>
+                          {post.contentType === 'carousel' && (
+                            <p className="text-xs text-gray-500 mt-1">Carrousel ({post.carouselImages.length} images)</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+      </main>
+
+      <HuriaAssistant />
+    </div>
+  );
+}
+
+function AuthModal({ visible, onClose, setLegalModal }) {
+  const [mode, setMode] = useState('login');
+  const [showPassword, setShowPassword] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const { login, register } = useAuth();
+  const toast = useToast();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', password: '' });
+
+  useEffect(() => {
+    setAcceptTerms(false);
+    setRememberMe(false);
+    setShowPassword(false);
+    setFormData({ firstName: '', lastName: '', email: '', password: '' });
+  }, [visible, mode]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (mode === 'register') {
+      if (!acceptTerms) return toast.push('Veuillez accepter les conditions d\'utilisation');
+      if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) return toast.push('Tous les champs sont requis');
+      setLoading(true);
+      try {
+        await register(formData.email, formData.password, `${formData.firstName} ${formData.lastName}`);
+        toast.push('Inscription réussie ✓');
+        onClose();
+      } catch (err) {
+        toast.push(err.message || 'Erreur lors de l\'inscription');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      if (!formData.email || !formData.password) return toast.push('Email et mot de passe requis');
+      setLoading(true);
+      try {
+        await login(formData.email, formData.password);
+        toast.push('Connexion réussie ✓');
+        onClose();
+      } catch (err) {
+        toast.push(err.message || 'Erreur de connexion');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  if (!visible) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="w-full max-w-md rounded-3xl bg-white/10 backdrop-blur-md p-6 sm:p-8 shadow-2xl border border-white/20" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
+            <h3 className="text-xl sm:text-2xl font-bold text-white">{mode === 'register' ? 'Créer un compte' : 'Se connecter'}</h3>
+            <button onClick={onClose} className="p-2 rounded-2xl hover:bg-white/10 transition-colors"><X className="w-6 h-6 text-gray-300" /></button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === 'register' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium text-gray-300 mb-1.5 block">Prénom</label>
+                  <input value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} placeholder="Prénom" required className="w-full rounded-xl border border-gray-600 bg-gray-700/30 backdrop-blur-md px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-300 mb-1.5 block">Nom</label>
+                  <input value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} placeholder="Nom" required className="w-full rounded-xl border border-gray-600 bg-gray-700/30 backdrop-blur-md px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50" />
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="text-sm font-medium text-gray-300 mb-1.5 block">Email</label>
+              <input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} placeholder="votre@email.com" required className="w-full rounded-xl border border-gray-600 bg-gray-700/30 backdrop-blur-md px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50" />
+            </div>
+            <div className="relative">
+              <label className="text-sm font-medium text-gray-300 mb-1.5 block">Mot de passe</label>
+              <input type={showPassword ? 'text' : 'password'} value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} placeholder="••••••••" required className="w-full rounded-xl border border-gray-600 bg-gray-700/30 backdrop-blur-md px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50" />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[38px] text-gray-300 hover:text-white transition-colors">{showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}</button>
+            </div>
+            {mode === 'register' && (
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="mt-1 w-5 h-5 rounded border-2 border-white/30 bg-white/10 checked:bg-white/30 checked:border-white/50 focus:ring-2 focus:ring-white/50 cursor-pointer" />
+                <span className="text-sm text-gray-200">J'accepte les <button type="button" onClick={(e) => { e.preventDefault(); setLegalModal('terms'); }} className="text-white hover:text-gray-300 underline">Conditions d'utilisation</button> et la <button type="button" onClick={(e) => { e.preventDefault(); setLegalModal('privacy'); }} className="text-white hover:text-gray-300 underline">Politique de confidentialité</button></span>
+              </label>
+            )}
+            {mode === 'login' && (
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="w-5 h-5 rounded border-2 border-white/30 bg-white/10 checked:bg-white/30 checked:border-white/50 focus:ring-2 focus:ring-white/50 cursor-pointer" />
+                <span className="text-sm text-gray-200">Rester connecté</span>
+              </label>
+            )}
+            <button type="submit" disabled={loading} className={`w-full px-4 py-3 rounded-xl font-medium transition-all bg-white text-gray-900 hover:bg-gray-100 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (mode === 'register' ? "S'inscrire" : 'Se connecter')}
+            </button>
+            <div className="text-center text-sm text-gray-300">
+              <button type="button" onClick={() => setMode(mode === 'register' ? 'login' : 'register')} className="underline hover:no-underline text-white">{mode === 'register' ? "J'ai déjà un compte" : 'Créer un compte'}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function HomePage() {
+  const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [legalModal, setLegalModal] = useState(null); // 'terms' or 'privacy' or null
+
+  const features = [
+    { icon: Upload, title: 'Upload & Planification', description: 'Téléchargez et programmez vos vidéos aux heures optimales.' },
+    { icon: Users, title: 'Multi-Comptes', description: 'Gérez plusieurs comptes depuis une seule interface intuitive.' },
+    { icon: BarChart3, title: 'Analytics Avancés', description: 'Suivez vos performances avec des statistiques détaillées.' },
+    { icon: Zap, title: 'Automatisation', description: 'Publication automatique selon vos règles personnalisées.' }
+  ];
+
+  const testimonials = [
+    { name: 'Marie Dubois', role: 'Influenceuse', content: "huboria m'a fait gagner des heures. Mes vidéos sont publiées automatiquement aux meilleurs moments !", avatar: 'MD' },
+    { name: 'Thomas Martin', role: 'Créateur', content: 'Interface intuitive et fonctionnalités puissantes. Je recommande à tous les créateurs sérieux.', avatar: 'TM' },
+    { name: 'Sophie Leroux', role: 'Marketing Manager', content: "Parfait pour gérer nos comptes d'entreprise. Les analytics sont très utiles pour notre stratégie.", avatar: 'SL' }
+  ];
+
+  const LegalModalContent = ({ type, onClose }) => {
+    const content = {
+      terms: {
+        title: "Conditions d'utilisation",
+        sections: [
+          { title: "1. Acceptation des conditions", content: "En utilisant Huboria, vous acceptez les présentes conditions d'utilisation. Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser notre service." },
+          { title: "2. Description du service", content: "Huboria est une plateforme de gestion et d'automatisation de publications TikTok. Nous vous permettons de programmer, publier et analyser vos contenus sur TikTok." },
+          { title: "3. Compte utilisateur", content: "Vous êtes responsable de maintenir la confidentialité de vos identifiants de compte. Vous acceptez de nous notifier immédiatement en cas d'utilisation non autorisée de votre compte." },
+          { title: "4. Utilisation acceptable", content: "Vous vous engagez à utiliser Huboria de manière légale et éthique. Toute utilisation frauduleuse ou abusive peut entraîner la suspension de votre compte." },
+          { title: "5. Propriété intellectuelle", content: "Tous les droits de propriété intellectuelle relatifs à Huboria appartiennent à leurs propriétaires respectifs. Vous conservez tous les droits sur votre contenu." },
+          { title: "6. Limitation de responsabilité", content: "Huboria est fourni 'tel quel'. Nous ne garantissons pas que le service sera ininterrompu ou exempt d'erreurs." }
+        ]
+      },
+      privacy: {
+        title: "Politique de confidentialité",
+        sections: [
+          { title: "1. Collecte des données", content: "Nous collectons les informations que vous nous fournissez lors de l'inscription : nom, email, et les données nécessaires à la connexion de vos comptes TikTok." },
+          { title: "2. Utilisation des données", content: "Vos données sont utilisées pour fournir et améliorer nos services, vous envoyer des notifications importantes, et analyser l'utilisation de la plateforme." },
+          { title: "3. Protection des données", content: "Nous mettons en œuvre des mesures de sécurité appropriées pour protéger vos données personnelles contre tout accès non autorisé." },
+          { title: "4. Partage des données", content: "Nous ne vendons pas vos données personnelles. Vos informations peuvent être partagées uniquement avec TikTok pour permettre les fonctionnalités de publication." },
+          { title: "5. Cookies", content: "Nous utilisons des cookies pour améliorer votre expérience utilisateur et analyser l'utilisation de notre plateforme." },
+          { title: "6. Vos droits", content: "Vous avez le droit d'accéder, de modifier ou de supprimer vos données personnelles à tout moment. Contactez-nous à huboria.contacte@gmail.com pour toute demande." },
+          { title: "7. Modifications", content: "Nous nous réservons le droit de modifier cette politique de confidentialité. Les modifications seront publiées sur cette page." }
+        ]
+      }
+    };
+
+    const currentContent = content[type];
+
+    return (
+      <div className="fixed inset-0 z-[60] grid place-items-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="w-full max-w-2xl rounded-3xl bg-white/10 backdrop-blur-md p-6 sm:p-8 shadow-2xl border border-white/20 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl sm:text-2xl font-bold text-white">{currentContent.title}</h3>
+            <button onClick={onClose} className="p-2 rounded-2xl hover:bg-white/10 transition-colors"><X className="w-6 h-6 text-gray-300" /></button>
+          </div>
+          <div className="space-y-6">
+            {currentContent.sections.map((section, index) => (
+              <div key={index} className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                <h4 className="text-white font-semibold mb-2 text-base">{section.title}</h4>
+                <p className="text-gray-300 text-sm leading-relaxed">{section.content}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 pt-6 border-t border-white/10">
+            <p className="text-gray-400 text-xs text-center">Pour toute question, contactez-nous à : <a href="mailto:huboria.contacte@gmail.com" className="text-white hover:underline">huboria.contacte@gmail.com</a></p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen" style={{ backgroundImage: `url('https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_68d8061bb3d230f8bc63e27d/18def7c61_IMG_2884.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
+      <nav className="w-full bg-black/20 backdrop-blur-md border-b border-white/10 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_68d8061bb3d230f8bc63e27d/bc1fe992a_IMG_2947.png" alt="Logo" className="w-8 h-8 sm:w-10 sm:h-10 object-contain"/>
+              </div>
+              <span className="text-xl sm:text-2xl font-bold text-white">huboria</span>
+            </div>
+            <div className="hidden md:flex items-center gap-10">
+                <a href="#features" className="text-gray-300 hover:text-white transition">Fonctionnalités</a>
+                <a href="#pricing" className="text-gray-300 hover:text-white transition">Tarifs</a>
+                <a href="#testimonials" className="text-gray-300 hover:text-white transition">Témoignages</a>
+            </div>
+            <div className="hidden sm:flex items-center gap-4">
+                <Button variant="secondary" onClick={() => setAuthModalVisible(true)}>Se connecter</Button>
+                <Button onClick={() => setAuthModalVisible(true)}>Commencer</Button>
+            </div>
+            <div className="md:hidden">
+              <button onClick={() => setMenuOpen(!menuOpen)} className="text-white p-2">
+                <Menu className="w-6 h-6"/>
+              </button>
+            </div>
+          </div>
+        </div>
+        {menuOpen && (
+          <div className="md:hidden bg-black/50 backdrop-blur-lg">
+            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+              <a href="#features" onClick={() => setMenuOpen(false)} className="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Fonctionnalités</a>
+              <a href="#pricing" onClick={() => setMenuOpen(false)} className="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Tarifs</a>
+              <a href="#testimonials" onClick={() => setMenuOpen(false)} className="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-base font-medium">Témoignages</a>
+            </div>
+            <div className="pt-4 pb-3 border-t border-gray-700">
+                <div className="flex items-center justify-center px-5 gap-4">
+                    <Button variant="secondary" className="w-full" onClick={() => {setAuthModalVisible(true); setMenuOpen(false);}}>Se connecter</Button>
+                    <Button className="w-full" onClick={() => {setAuthModalVisible(true); setMenuOpen(false);}}>S'inscrire</Button>
+                </div>
+            </div>
+          </div>
+        )}
+      </nav>
+
+      <section className="pt-20 pb-16 md:pt-32 md:pb-20 relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          <div className="text-center lg:text-left relative z-10">
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-white mb-6 md:mb-8 leading-tight">
+              Automatisez vos publications{' '}
+              <span className="text-white">
+                TikTok
+              </span>
+            </h1>
+            <p className="text-lg md:text-xl text-gray-300 mb-8 md:mb-12 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+              Programmez, publiez et analysez vos contenus avec notre plateforme tout-en-un. Gagnez du temps et maximisez votre engagement.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center lg:justify-start items-center">
+              <Button size="lg" onClick={() => setAuthModalVisible(true)}>
+                <Zap className="w-5 h-5 sm:w-6 sm:h-6 mr-2"/>
+                Commencer gratuitement
+              </Button>
+            </div>
+          </div>
+
+          <div className="relative h-[500px] lg:h-[600px]">
+            <GlobeComponent />
+          </div>
+        </div>
+      </section>
+
+      <section id="features" className="py-20 md:py-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12 md:mb-20">
+          <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 md:mb-6">Tout ce dont vous avez besoin</h2>
+          <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">Des outils puissants pour optimiser votre présence sur TikTok</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+          {features.map((feature, i) => (
+            <Card key={i}>
+              <div className="text-center">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/10 rounded-3xl flex items-center justify-center mx-auto mb-6 backdrop-blur-md border border-white/20">
+                  <feature.icon className="w-8 h-8 sm:w-10 sm:h-10 text-white"/>
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-4">{feature.title}</h3>
+                <p className="text-gray-300">{feature.description}</p>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="py-20 md:py-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12 md:mb-20">
+          <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 md:mb-6">🚀 Qu'est-ce que Huboria ?</h2>
+          <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-8">
+            La plateforme tout-en-un pour gérer votre présence sur TikTok
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          <Card className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-purple-400/30">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-14 h-14 bg-purple-500/20 rounded-2xl flex items-center justify-center backdrop-blur-md border border-purple-400/30">
+                <Zap className="w-8 h-8 text-purple-300" />
+              </div>
+              <h3 className="text-2xl font-bold text-white">Notre Mission</h3>
+            </div>
+            <p className="text-gray-200 text-base leading-relaxed mb-6">
+              Huboria a été créé pour simplifier la vie des créateurs de contenu, des influenceurs et des marques sur TikTok.
+              Notre mission est de vous permettre de vous concentrer sur ce que vous faites de mieux : <span className="font-semibold text-white">créer du contenu authentique et engageant</span>.
+            </p>
+            <p className="text-gray-200 text-base leading-relaxed">
+              Nous automatisons tout le reste : la planification, la publication aux meilleurs moments, l'analyse des performances,
+              et la gestion de plusieurs comptes depuis une seule interface intuitive.
+            </p>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-blue-900/30 to-cyan-900/30 border-blue-400/30">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-14 h-14 bg-blue-500/20 rounded-2xl flex items-center justify-center backdrop-blur-md border border-blue-400/30">
+                <Users className="w-8 h-8 text-blue-300" />
+              </div>
+              <h3 className="text-2xl font-bold text-white">Pour Qui ?</h3>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-blue-400/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <Check className="w-4 h-4 text-blue-300" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white mb-1">Créateurs de Contenu</p>
+                  <p className="text-sm text-gray-300">Gérez votre calendrier de publication et optimisez votre reach</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-blue-400/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <Check className="w-4 h-4 text-blue-300" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white mb-1">Influenceurs</p>
+                  <p className="text-sm text-gray-300">Maximisez votre engagement avec des publications stratégiques</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-blue-400/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <Check className="w-4 h-4 text-blue-300" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white mb-1">Marques & Agences</p>
+                  <p className="text-sm text-gray-300">Gérez plusieurs comptes clients avec des analytics détaillées</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-blue-400/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <Check className="w-4 h-4 text-blue-300" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white mb-1">E-commerce</p>
+                  <p className="text-sm text-gray-300">Boostez vos ventes avec une présence TikTok optimisée</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <Card className="bg-gradient-to-r from-green-900/30 via-teal-900/30 to-blue-900/30 border-green-400/30">
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="w-20 h-20 bg-green-500/20 rounded-3xl flex items-center justify-center backdrop-blur-md border border-green-400/30 flex-shrink-0">
+              <BarChart3 className="w-12 h-12 text-green-300" />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <h3 className="text-2xl font-bold text-white mb-4">Pourquoi Choisir Huboria ?</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div>
+                  <p className="text-3xl font-bold text-white mb-2">10x</p>
+                  <p className="text-sm text-gray-300">Gain de temps sur la gestion de contenu</p>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-white mb-2">+45%</p>
+                  <p className="text-sm text-gray-300">Augmentation moyenne de l'engagement</p>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-white mb-2">24/7</p>
+                  <p className="text-sm text-gray-300">Publication automatique sans interruption</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      <section id="features" className="py-20 md:py-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12 md:mb-20">
+          <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 md:mb-6">🎯 Objectifs de Huboria</h2>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch mb-8">
+            <Card>
+                <div className="flex items-center gap-4 mb-4">
+                    <User className="w-8 h-8 text-gray-300"/>
+                    <h3 className="text-2xl font-bold text-white">Pour les Créateurs</h3>
+                </div>
+                <p className="text-gray-300 text-base">
+                    Huboria a pour ambition de se développer à l'international et de devenir une plateforme mondiale connectant les créateurs de tous horizons. L'objectif est de permettre à chaque utilisateur — marque, agence ou créateur — de développer une communauté dans d'autres pays sans y être physiquement. Grâce à une fonction innovante, il suffira de sélectionner un pays lors de la planification pour que le système poste le TikTok directement dans ce pays, offrant une portée internationale sans contrainte géographique.
+                </p>
+            </Card>
+            <Card className="border-green-400/30 bg-green-900/10 flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                        <Globe className="w-8 h-8 text-green-300"/>
+                        <h3 className="text-2xl font-bold text-white">Expansion Internationale</h3>
+                    </div>
+                    <span className="text-xs bg-yellow-400/20 text-yellow-300 px-3 py-1 rounded-full border border-yellow-400/30">Bientôt</span>
+                </div>
+                <p className="text-gray-300 mb-6">Le contenu sera adapté automatiquement pour une portée mondiale :</p>
+                <ul className="space-y-4 mb-8 flex-grow">
+                    <li className="flex items-center gap-3">
+                        <Languages className="w-6 h-6 text-green-300"/>
+                        <span className="text-white">Traduction de la description</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                        <Hash className="w-6 h-6 text-green-300"/>
+                        <span className="text-white">Ajustement des hashtags aux tendances locales</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                        <Clock className="w-6 h-6 text-green-300"/>
+                        <span className="text-white">Publication selon le fuseau horaire</span>
+                    </li>
+                </ul>
+                <div className="bg-black/30 rounded-2xl p-4 flex items-center gap-4 border border-white/10">
+                    <Lock className="w-8 h-8 text-white flex-shrink-0"/>
+                    <div>
+                        <p className="font-semibold text-white">Fonctionnalité disponible dans le plan Enterprise</p>
+                        <p className="text-sm text-gray-400">Passez au niveau supérieur pour une portée mondiale.</p>
+                    </div>
+                </div>
+            </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+            <Card className="border-blue-400/30 bg-blue-900/10">
+                <div className="flex items-center gap-4 mb-4">
+                    <svg className="w-8 h-8 text-blue-300" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                    </svg>
+                    <h3 className="text-2xl font-bold text-white">Notre Focus Actuel</h3>
+                </div>
+                <p className="text-gray-300 text-base mb-6">
+                    Pour l'instant, nous préférons nous concentrer exclusivement sur TikTok afin de perfectionner notre plateforme et offrir la meilleure expérience possible à nos utilisateurs. En nous focalisant sur une seule plateforme, nous pouvons garantir des fonctionnalités avancées, une fiabilité optimale et un support de qualité.
+                </p>
+                <div className="bg-blue-900/20 rounded-2xl p-4 border border-blue-400/30">
+                    <p className="text-blue-200 font-semibold mb-2">✨ Pourquoi TikTok en premier ?</p>
+                    <ul className="space-y-2 text-gray-300 text-sm">
+                        <li>• Croissance la plus rapide du marché</li>
+                        <li>• Engagement utilisateur le plus élevé</li>
+                        <li>• Opportunités créatives uniques</li>
+                        <li>• Algorithme favorable aux nouveaux créateurs</li>
+                    </ul>
+                </div>
+            </Card>
+
+            <Card className="border-purple-400/30 bg-purple-900/10">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                        <svg className="w-8 h-8 text-purple-300" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/>
+                        </svg>
+                        <h3 className="text-2xl font-bold text-white">Expansion Multi-Plateformes</h3>
+                    </div>
+                    <span className="text-xs bg-purple-400/20 text-purple-300 px-3 py-1 rounded-full border border-purple-400/30">Prochainement</span>
+                </div>
+                <p className="text-gray-300 text-base mb-6">
+                    À l'avenir, Huboria s'étendra vers Instagram, YouTube, X et Facebook pour vous permettre d'exporter votre contenu au-delà de TikTok et d'atteindre un public encore plus large sur toutes les plateformes majeures.
+                </p>
+                <ul className="space-y-4 mb-6">
+                    <li className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zM12 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zM12 16.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zM18.406 5.317c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                            </svg>
+                        </div>
+                        <span className="text-white">Instagram - Reels & Stories</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                            </svg>
+                        </div>
+                        <span className="text-white">YouTube - Shorts & Vidéos</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center flex-shrink-0">
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                            </svg>
+                        </div>
+                        <span className="text-white">X - Posts & Threads</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                            </svg>
+                        </div>
+                        <span className="text-white">Facebook - Vidéos & Posts</span>
+                    </li>
+                </ul>
+                <div className="bg-purple-900/20 rounded-2xl p-4 border border-purple-400/30">
+                    <p className="text-purple-200 font-semibold mb-2">🎉 Disponible pour tous les plans</p>
+                    <p className="text-gray-300 text-sm">
+                        Lorsque ces plateformes seront disponibles, tous nos utilisateurs pourront en profiter, quel que soit leur plan d'abonnement.
+                    </p>
+                </div>
+            </Card>
+        </div>
+      </section>
+
+      <section id="pricing" className="py-20 md:py-32 bg-black/20 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12 md:mb-20">
+            <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 md:mb-6">Tarifs simples et transparents</h2>
+            <p className="text-lg md:text-xl text-gray-300">Choisissez le plan qui correspond à vos besoins</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+            {Object.entries(PLANS).map(([key, plan]) => (
+              <Card key={key} className={key === 'professional' ? 'ring-2 ring-purple-400 relative bg-purple-900/20' : ''}>
+                {key === 'professional' && (
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2"><span className="bg-white/90 text-black px-4 py-2 rounded-2xl text-sm font-medium backdrop-blur-md border border-white/20">Populaire</span></div>
+                )}
+                <div className="text-center">
+                  <h3 className={`text-2xl font-bold mb-3 ${plan.color}`}>{plan.name}</h3>
+                  <div className="mb-6">
+                    <span className="text-4xl md:text-5xl font-bold text-white">{plan.price === 0 ? 'Gratuit' : `${plan.price}€`}</span>
+                    {plan.price > 0 && <span className="text-gray-300">/mois</span>}
+                  </div>
+                  <ul className="space-y-3 mb-8 text-left text-sm">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
+                        <span className="text-gray-300">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button variant={key === 'professional' ? 'primary' : 'outline'} className="w-full" onClick={() => setAuthModalVisible(true)}>
+                    {plan.price === 0 ? 'Commencer' : 'Choisir ce plan'}
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="testimonials" className="py-20 md:py-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12 md:mb-20">
+          <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 md:mb-6">Ce que disent nos utilisateurs</h2>
+          <p className="text-lg md:text-xl text-gray-300">Rejoignez des milliers de créateurs satisfaits</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {testimonials.map((t, i) => (
+            <Card key={i}>
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6 backdrop-blur-md border border-white/20">
+                  <span className="text-white font-bold text-lg">{t.avatar}</span>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-white text-lg">{t.name}</h4>
+                  <p className="text-gray-300">{t.role}</p>
+                </div>
+              </div>
+              <p className="text-gray-300 italic text-base md:text-lg">"{t.content}"</p>
+              <div className="flex text-yellow-400 mt-6">
+                {[...Array(5)].map((_, j) => (
+                  <Star key={j} className="w-5 h-5 fill-current"/>
+                ))}
+              </div>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="py-20 md:py-32 bg-white/5 backdrop-blur-md text-white text-center border-y border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl md:text-5xl font-bold mb-6">Prêt à automatiser vos publications ?</h2>
+          <p className="text-lg md:text-xl mb-12 text-gray-300">Commencez gratuitement et boostez votre présence sur TikTok.</p>
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center">
+            <Button variant="secondary" size="lg" onClick={() => setAuthModalVisible(true)}>
+              <Zap className="w-6 h-6 mr-2"/>
+              Essai gratuit
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <footer className="bg-black/40 text-white py-16 backdrop-blur-md border-t border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center">
+                  <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_68d8061bb3d230f8bc63e27d/bc1fe992a_IMG_2947.png" alt="Logo" className="w-8 h-8 object-contain"/>
+                </div>
+                <span className="text-xl font-bold">huboria</span>
+              </div>
+              <p className="text-gray-400 text-sm mb-4">
+                La plateforme tout-en-un pour automatiser vos publications TikTok et maximiser votre engagement.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-white mb-4">Navigation</h3>
+              <ul className="space-y-2 text-sm">
+                <li><a href="#features" className="text-gray-400 hover:text-white transition-colors">Fonctionnalités</a></li>
+                <li><a href="#pricing" className="text-gray-400 hover:text-white transition-colors">Tarifs</a></li>
+                <li><a href="#testimonials" className="text-gray-400 hover:text-white transition-colors">Témoignages</a></li>
+                <li><button onClick={() => setAuthModalVisible(true)} className="text-gray-400 hover:text-white transition-colors">Connexion</button></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-white mb-4">Légal</h3>
+              <ul className="space-y-2 text-sm">
+                <li><button onClick={() => setLegalModal('terms')} className="text-gray-400 hover:text-white transition-colors">Conditions d'utilisation</button></li>
+                <li><button onClick={() => setLegalModal('privacy')} className="text-gray-400 hover:text-white transition-colors">Politique de confidentialité</button></li>
+                <li><a href="mailto:huboria.contacte@gmail.com" className="text-gray-400 hover:text-white transition-colors">Mentions légales</a></li>
+                <li><a href="mailto:huboria.contacte@gmail.com" className="text-gray-400 hover:text-white transition-colors">CGV</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-white mb-4">Contact</h3>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <a href="mailto:huboria.contacte@gmail.com?subject=Besoin d'aide" className="text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Besoin d'aide
+                  </a>
+                </li>
+                <li>
+                  <a href="mailto:huboria.contacte@gmail.com?subject=Investir dans Huboria" className="text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Investir dans Huboria
+                  </a>
+                </li>
+                <li>
+                  <a href="mailto:huboria.contacte@gmail.com?subject=Être recruté dans Huboria" className="text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Rejoindre l'équipe
+                  </a>
+                </li>
+                <li>
+                  <a href="mailto:huboria.contacte@gmail.com?subject=Partenariat avec Huboria" className="text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    Partenariats
+                  </a>
+                </li>
+                <li className="pt-2">
+                  <a href="mailto:huboria.contacte@gmail.com" className="text-white font-medium hover:text-gray-300 transition-colors flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    huboria.contacte@gmail.com
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-white/10 pt-8">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="text-center md:text-left text-gray-400 text-sm">
+                © 2024 huboria. Tous droits réservés. Fait avec ❤️ pour les créateurs.
+              </div>
+              <div className="flex flex-wrap justify-center gap-4 text-sm">
+                <button onClick={() => setLegalModal('terms')} className="text-gray-400 hover:text-white transition-colors">Conditions</button>
+                <span className="text-gray-600">•</span>
+                <button onClick={() => setLegalModal('privacy')} className="text-gray-400 hover:text-white transition-colors">Confidentialité</button>
+                <span className="text-gray-600">•</span>
+                <a href="mailto:huboria.contacte@gmail.com" className="text-gray-400 hover:text-white transition-colors">Contact</a>
+                <span className="text-gray-600">•</span>
+                <a href="https://www.tiktok.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">TikTok</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      <AuthModal visible={authModalVisible} onClose={() => setAuthModalVisible(false)} setLegalModal={setLegalModal} />
+      {legalModal && <LegalModalContent type={legalModal} onClose={() => setLegalModal(null)} />}
+    </div>
+  );
+}
+
+function AppRouter() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundImage: `url('https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/user_68d8061bb3d230f8bc63e27d/18def7c61_IMG_2884.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+        <Loader2 className="w-12 h-12 text-white animate-spin" />
+      </div>
+    );
+  }
+
+  return user ? <Dashboard /> : <HomePage />;
+}
+
+export default function Home() {
+  return (
+    <ToastProvider>
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
+    </ToastProvider>
+  );
+}
